@@ -3,11 +3,10 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint as cp
 from mmcv.cnn import ConvModule, build_norm_layer
-from mmcv.runner import BaseModule
-from mmcv.utils.parrots_wrapper import _BatchNorm
+from mmengine.model import BaseModule
+from mmengine.utils.dl_utils.parrots_wrapper import _BatchNorm
 
-from mmocr.models.builder import (BACKBONES, UPSAMPLE_LAYERS,
-                                  build_activation_layer, build_upsample_layer)
+from mmocr.registry import MODELS
 
 
 class UpConvBlock(nn.Module):
@@ -80,13 +79,14 @@ class UpConvBlock(nn.Module):
             dcn=None,
             plugins=None)
         if upsample_cfg is not None:
-            self.upsample = build_upsample_layer(
-                cfg=upsample_cfg,
-                in_channels=in_channels,
-                out_channels=skip_channels,
-                with_cp=with_cp,
-                norm_cfg=norm_cfg,
-                act_cfg=act_cfg)
+            upsample_cfg.update(
+                dict(
+                    in_channels=in_channels,
+                    out_channels=skip_channels,
+                    with_cp=with_cp,
+                    norm_cfg=norm_cfg,
+                    act_cfg=act_cfg))
+            self.upsample = MODELS.build(upsample_cfg)
         else:
             self.upsample = ConvModule(
                 in_channels,
@@ -181,7 +181,7 @@ class BasicConvBlock(nn.Module):
         return out
 
 
-@UPSAMPLE_LAYERS.register_module()
+@MODELS.register_module()
 class DeconvModule(nn.Module):
     """Deconvolution upsample module in decoder for UNet (2X upsample).
 
@@ -230,7 +230,7 @@ class DeconvModule(nn.Module):
             padding=padding)
 
         _, norm = build_norm_layer(norm_cfg, out_channels)
-        activate = build_activation_layer(act_cfg)
+        activate = MODELS.build(act_cfg)
         self.deconv_upsamping = nn.Sequential(deconv, norm, activate)
 
     def forward(self, x):
@@ -243,7 +243,7 @@ class DeconvModule(nn.Module):
         return out
 
 
-@UPSAMPLE_LAYERS.register_module()
+@MODELS.register_module()
 class InterpConv(nn.Module):
     """Interpolation upsample module in decoder for UNet.
 
@@ -317,7 +317,7 @@ class InterpConv(nn.Module):
         return out
 
 
-@BACKBONES.register_module()
+@MODELS.register_module()
 class UNet(BaseModule):
     """UNet backbone.
     U-Net: Convolutional Networks for Biomedical Image Segmentation.
@@ -476,7 +476,7 @@ class UNet(BaseModule):
                     act_cfg=act_cfg,
                     dcn=None,
                     plugins=None))
-            self.encoder.append((nn.Sequential(*enc_conv_block)))
+            self.encoder.append(nn.Sequential(*enc_conv_block))
             in_channels = base_channels * 2**i
 
     def forward(self, x):

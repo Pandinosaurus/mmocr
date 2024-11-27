@@ -1,11 +1,9 @@
 imgaug
-lanms-neo==1.0.2
 lmdb
 matplotlib
-numba>=0.45.1
 numpy
+opencv-python >=4.2.0.32, != 4.5.5.*  # avoid Github security alert
 pyclipper
-rapidfuzz
+pycocotools
+rapidfuzz>=2.0.0
 scikit-image
-six
-terminaltables
